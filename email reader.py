@@ -9,7 +9,6 @@ from google.auth.transport.requests import Request
 from datetime import datetime, timedelta
 from imap_tools import MailBox
 
-# Set up Google PaLM API Key
 palm.configure(api_key="AIzaSyDnAEmnXo1nfb4dQY-IQZg6L8kpfEUiDDg")
 model=palm.GenerativeModel('gemini-1.5-flash-latest')
 # If modifying these SCOPES, delete the token.json file.
