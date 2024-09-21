@@ -56,7 +56,7 @@ def read_emails():
 
     # Access Gmail messages via POP3
     with MailBox("pop.gmail.com").login('krishnanshu.agrawal2024@vitstudent.ac.in','bxrc jznb brfg laxo', "Inbox") as mb:
-        for message in mb.fetch(limit=7, reverse=True, mark_seen=False):
+        for message in mb.fetch(limit=9, reverse=True, mark_seen=False):
             # Extract the unique message ID (assuming Gmail messages sync via POP3)
             message_id = message.uid  # For POP3, this is typically a unique message identifier
 
@@ -82,7 +82,7 @@ def read_emails():
 
                 time_responses.append(formatted_dt)
 
-                discriptions.append(discription_response.text)
+                # discriptions.append(discription_response.text)
             else:
                 # Log if no date is found for debugging purposes
                 print(f"No date found for message ID {message_id}")
@@ -100,10 +100,13 @@ def read_emails():
 
 
     events_dict = {}
-    for index, (event, timestamp) in enumerate(zip(events, time_responses)):
+    for (event, timestamp) in (zip(events, time_responses)):
         date = datetime.fromisoformat(timestamp).date()
         date_tuple = (date.year, date.month, date.day)
-        events_dict[date_tuple] = (event.strip())
+        if date_tuple not in events_dict:
+            events_dict[date_tuple] = list(event)
+        elif date_tuple in events_dict:
+            events_dict[date_tuple] = ((events_dict[date_tuple]).append(event))
 
     print(events_dict)
     return events_dict

@@ -56,7 +56,7 @@ def read_emails():
 
     # Access Gmail messages via POP3
     with MailBox("pop.gmail.com").login('krishnanshu.agrawal2024@vitstudent.ac.in','bxrc jznb brfg laxo', "Inbox") as mb:
-        for message in mb.fetch(limit=7, reverse=True, mark_seen=False):
+        for message in mb.fetch(limit=3, reverse=True, mark_seen=False):
             # Extract the unique message ID (assuming Gmail messages sync via POP3)
             message_id = message.uid  # For POP3, this is typically a unique message identifier
 
@@ -90,24 +90,26 @@ def read_emails():
         # Sort the events by internalDate in descending order (most recent first)
         events.sort(key=lambda event: event[1], reverse=True)
 
-        print(events)
-        print(time_responses)
 
     # Initialize empty dictionary
     events_dict = {}
 
     # Loop through both lists together
-
-
-    events_dict = {}
-    for index, (event, timestamp) in enumerate(zip(events, time_responses)):
-        date = datetime.fromisoformat(timestamp).date()
-        date_tuple = (date.year, date.month, date.day)
-        events_dict[date_tuple] = (event.strip())
-
-    print(events_dict)
-    return events_dict
-
+    for event, timestamp in zip(events, time_responses):
+        # Parse the timestamp string into a datetime object
+        dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
+        
+        # Extract year, month, and day as a tuple
+        date_key = (dt.year, dt.month, dt.day)
+        
+        # Add the event to the dictionary under the appropriate date
+        if date_key not in events_dict:
+            events_dict[date_key] = [event]  # Initialize a list for the date if not already present
+        
+        
+        # Strip trailing newline characters and add the event
+        print(events_dict)
+        return events_dict
 
 def mainFn(events_dict):
     root = tk.Tk()
