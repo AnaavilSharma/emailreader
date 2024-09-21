@@ -95,9 +95,8 @@ def read_emails(user_info):
 
             if internal_date:
                 # Convert to timestamp in milliseconds
-                internal_date = int(internal_date)
                 events.append((small_response.text))
-                time_responses.append(internal_date)
+                time_responses.append(time_response)
                 discriptions.append(discription_response.text)
             else:
                 # Log if no date is found for debugging purposes
