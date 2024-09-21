@@ -4,4 +4,4 @@
 	bare = false
 	logallrefupdates = true
 	symlinks = false
-	ignorecase = false
+	ignorecase = true
