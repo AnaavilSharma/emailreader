@@ -1,9 +1,6 @@
 from datetime import datetime
 
 
-events_list = ['Python hackathon, November 8-10. \n', 'Futsal tournament postponed, new date TBA. \n', 'Accenture Innovation Challenge: AI for Business \n']
-timestamps_list = ['2024-09-21 15:00:03.000000', '2024-09-21 10:54:47.000000', '2024-09-21 09:43:47.000000']
-
 # Initialize empty dictionary
 events_dict = {}
 
