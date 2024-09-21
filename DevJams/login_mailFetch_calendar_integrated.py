@@ -2,9 +2,23 @@ import tkinter as tk
 from tkinter import messagebox
 import os
 from GUI_cal_opt2 import mainFn
+from F_ReadAndSumm import *
+
+
 
 # File where users will be stored
 USER_FILE = 'users.txt'
+
+
+
+
+
+
+
+
+
+
+
 
 # Dark mode color variables
 BG_COLOR = "#2e2e2e"  # Dark background
@@ -45,6 +59,17 @@ def remove_user(username):
 # Function to open the Calendar App window
 def open_calendar_app():
     mainFn()
+    exec('''
+from login_mailFetch_calendar_integrated import USER_FILE
+from F_ReadAndSumm import *
+
+
+
+user_info = retrieve_email_credentials(USER_FILE)
+
+summarize_event(read_emails(user_info))
+
+''')
 
 # Function to handle login
 def open_user_list():
@@ -167,3 +192,5 @@ remove_user_button.pack(pady=5)
 
 # Run the application
 window.mainloop()
+
+
