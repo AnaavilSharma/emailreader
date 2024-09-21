@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import os
-from alltogheruse import *
+from working.All_Functions import *
 
 
 
@@ -46,7 +46,7 @@ def remove_user(username):
 
 # Function to open the Calendar App window
 def open_calendar_app():
-    mainFn(read_emails())
+    mainFn(read_emails(retrieve_email_credentials(USER_FILE)))
 
 # Function to handle login
 def open_user_list():
