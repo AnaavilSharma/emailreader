@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import os
-from GUI import mainFn
+from DevJams.GUI_cal_opt2 import mainFn
 
 # File where users will be stored
 USER_FILE = 'users.txt'
