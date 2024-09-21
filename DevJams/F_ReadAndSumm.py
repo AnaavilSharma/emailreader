@@ -73,10 +73,13 @@ def read_emails(user_info):
     
   
     events = []
-    
+    time_responses = []
+    discriptions = []
+
+
     # Access Gmail messages via POP3
     with MailBox("pop.gmail.com").login(user_info[0], user_info[1], "Inbox") as mb:
-        for message in mb.fetch(limit=8, reverse=True, mark_seen=False):
+        for message in mb.fetch(limit=3, reverse=True, mark_seen=False):
             # Extract the unique message ID (assuming Gmail messages sync via POP3)
             message_id = message.uid  # For POP3, this is typically a unique message identifier
 
@@ -84,53 +87,45 @@ def read_emails(user_info):
             snippet = message.text or 'No snippet available'
 
             # Summarize the event details from the snippet
-            event_summary = summarize_event(snippet)
-
+            small_response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following in 3 to 5 words :{snippet}")
+            discription_response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following in 200 words :{snippet}")
+            time_response = message.date
             # Get the received date of the email
             internal_date = message.date
 
             if internal_date:
                 # Convert to timestamp in milliseconds
-                internal_date = int(internal_date.timestamp() * 1000)
-                events.append((event_summary, internal_date))
+                internal_date = int(internal_date)
+                events.append((small_response.text))
+                time_responses.append(internal_date)
+                discriptions.append(discription_response.text)
             else:
                 # Log if no date is found for debugging purposes
                 print(f"No date found for message ID {message_id}")
-
-        # Debug: Print the list of events before sorting
-        print("Events before sorting:", events)
 
         # Sort the events by internalDate in descending order (most recent first)
         events.sort(key=lambda event: event[1], reverse=True)
 
     # Return only the event summaries (sorted)
-    return [event[0] for event in events]
-
-
-# Use Gemini (PaLM API) to summarize event details
-def summarize_event(snippet):
-    small_response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following in 3 to 5 words :{snippet}").text
-    discription_response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following in 200 words :{snippet}").text
-
-    print(response.text)
-    return response.text
+    print(events)
+    print(time_responses)
+    print(discriptions)
 
 
 
 
-
-
-
-def authenticate_google():
+def authenticate_google(path):
     creds = None
-
+    # Check if token.json exists (used to store credentials between sessions)
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             # Run OAuth2 flow for first-time authentication
             flow = InstalledAppFlow.from_client_secrets_file(
-                r'', SCOPES)                                                          # path dalna hai
+                f'r({path})', SCOPES)                                                          # path dalna hai
             creds = flow.run_local_server(port=0)
         # Save the credentials for the next run
         with open('token.json', 'w') as token:
@@ -158,3 +153,6 @@ def add_event_to_calendar(event_summary):
 
     event = service.events().insert(calendarId='primary', body=event).execute()
     print(f"Event created: {event.get('htmlLink')}")
+
+
+read_emails(retrieve_email_credentials(user_file='user.txt'))
