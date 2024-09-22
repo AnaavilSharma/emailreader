@@ -2,11 +2,17 @@ import tkinter as tk
 from tkinter import messagebox
 import os
 from cryptography.fernet import Fernet
-from PIL import Image, ImageTk  # Import Pillow for image handling
+from mainfn import *
 
 # File where users will be stored
 USER_FILE = 'users.txt'
 KEY_FILE = 'key.key'
+
+with open('key.key', 'rb') as key_file:
+    key = key_file.read()
+cipher_suite = Fernet(key)
+
+
 
 # Dark mode color variables
 BG_COLOR = "#2e2e2e"
@@ -74,12 +80,6 @@ class LoginApp:
         self.btn_new_user = tk.Button(self.button_frame, text="New User", command=self.register,
                                        bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR, borderwidth=0, relief="flat", padx=20, pady=15, width=25, font=("Helvetica Neue", 14))
         self.btn_new_user.pack(pady=10, anchor='w')
-
-        # Frame for calendar image
-        self.image_frame = tk.Frame(root, bg=BG_COLOR)
-        self.image_frame.pack(side='bottom', fill='both', padx=100, pady=20)
-
-        
 
         # Load users from file if it exists
         self.load_users()
@@ -195,9 +195,17 @@ class LoginApp:
                 messagebox.showinfo("Login", f"Login successful for user: {selected_user}")
                 user_list_window.destroy()
                 self.root.destroy()
-                print(selected_user)
+                self.runCalendar()  # Call the runCalendar function
 
         listbox.bind("<<ListboxSelect>>", on_user_select)
+
+    def runCalendar(self):
+
+        ReturnVal = read_emails(retrieve_email_credentials(USER_FILE))
+
+        mainFn(ReturnVal[0],ReturnVal[1],ReturnVal[2],ReturnVal[3],ReturnVal[4])
+
+        # You can add more calendar-related widgets here
 
     def register(self):
         username = self.entry_login_id.get()
