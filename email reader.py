@@ -10,17 +10,20 @@ from datetime import datetime, timedelta
 from imap_tools import MailBox
 
 palm.configure(api_key="AIzaSyDnAEmnXo1nfb4dQY-IQZg6L8kpfEUiDDg")
-model=palm.GenerativeModel('gemini-1.5-flash-latest')
+model = palm.GenerativeModel('gemini-1.5-flash-latest')
 # If modifying these SCOPES, delete the token.json file.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly',
           'https://www.googleapis.com/auth/calendar']
 
 CREDENTIALS_FILE = 'credentials.txt'
-# fast api local db sqllite 
+
+
+# fast api local db sqllite
 # Function to store email credentials
 def store_email_credentials(email, password):
     with open(CREDENTIALS_FILE, 'w') as f:
         f.write(f"{email}\n{password}")
+
 
 # Function to retrieve stored email credentials
 def retrieve_email_credentials():
@@ -66,54 +69,56 @@ def authenticate_google():
 
 def read_emails():
     creds = retrieve_email_credentials()
-    creds1 = authenticate_google()
-    service = build('gmail', 'v1', credentials=creds1)
 
     # Get messages via Gmail API based on the query
-    result = service.users().messages().list(userId='me', q="subject:event OR subject:meeting").execute()
-    messages = result.get('messages', [])
-    
+
     events = []
-    
+
     # Access Gmail messages via POP3
     with MailBox("pop.gmail.com").login(creds[0], 'camx nufx yryj nvac', "Inbox") as mb:
-        for message in mb.fetch(limit=8, reverse=True, mark_seen=False):
+        for message in mb.fetch(reverse=True, mark_seen=False):
             # Extract the unique message ID (assuming Gmail messages sync via POP3)
             message_id = message.uid  # For POP3, this is typically a unique message identifier
 
             # Get the email snippet or part of the body (using the POP3 object)
             snippet = message.text or 'No snippet available'
-
+            print(snippet)
+            try:
+                with open("Email.txt", "a", encoding="utf-8") as f:
+                    f.write(str(snippet) + "#\#")
+            except Exception as e:
+                print(f"Error writing to file: {e}")
             # Summarize the event details from the snippet
-            event_summary = summarize_event(snippet)
+            #event_summary = summarize_event(snippet)
 
             # Get the received date of the email
             internal_date = message.date
 
-            if internal_date:
-                # Convert to timestamp in milliseconds
-                internal_date = int(internal_date.timestamp() * 1000)
-                events.append((event_summary, internal_date))
-            else:
-                # Log if no date is found for debugging purposes
-                print(f"No date found for message ID {message_id}")
-
-        # Debug: Print the list of events before sorting
-        print("Events before sorting:", events)
-
-        # Sort the events by internalDate in descending order (most recent first)
-        events.sort(key=lambda event: event[1], reverse=True)
-
-    # Return only the event summaries (sorted)
-    return [event[0] for event in events]
+    #         if internal_date:
+    #             # Convert to timestamp in milliseconds
+    #             internal_date = int(internal_date.timestamp() * 1000)
+    #             events.append((event_summary, internal_date))
+    #         else:
+    #             # Log if no date is found for debugging purposes
+    #             print(f"No date found for message ID {message_id}")
+    #
+    #     # Sort the events by internalDate in descending order (most recent first)
+    #     events.sort(key=lambda event: event[1], reverse=True)
+    #
+    # # Return only the event summaries (sorted)
+    # return [event[0] for event in events]
 
 
 # Use Gemini (PaLM API) to summarize event details
 def summarize_event(snippet):
-    response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following:{snippet}",)
-    a=response
-    print(response.text)
-    return response.text
+    try:
+        response = model.generate_content(
+            f"You are an assistant that summarizes event details from emails. Summarise the following:{snippet}", )
+        ##print(response.text)
+        return response.text
+    except:
+        print("Gemini API error trying again")
+        summarize_event(snippet)
 
 
 # Function to add event to Google Calendar
@@ -143,6 +148,9 @@ class LoginApp:
         self.root = root
         self.root.title("Login")
 
+        # Hide the main login window initially
+        self.root.withdraw()
+
         # Ask if user wants to retrieve or input new credentials
         self.ask_credentials_window()
 
@@ -160,14 +168,19 @@ class LoginApp:
         if email and password:
             self.ask_window.destroy()
             messagebox.showinfo("Success", f"Using stored credentials for {email}.")
-            run_event_app()
+            run_event_app()  # Proceed with the app after using stored credentials
         else:
             messagebox.showerror("Error", "No stored credentials found. Please enter new credentials.")
             self.ask_window.destroy()
             self.new_credentials_form()
 
     def new_credentials_form(self):
+        # Close the credentials window
         self.ask_window.destroy()
+
+        # Show the main window for entering new credentials
+        self.root.deiconify()
+
         tk.Label(self.root, text="Enter your Gmail credentials").pack(pady=10)
 
         tk.Label(self.root, text="Email:").pack()
@@ -185,7 +198,8 @@ class LoginApp:
         password = self.password_entry.get()
 
         if email and password:
-            save_credentials = messagebox.askyesno("Save Credentials", "Do you want to save these credentials for future use?")
+            save_credentials = messagebox.askyesno("Save Credentials",
+                                                   "Do you want to save these credentials for future use?")
             if save_credentials:
                 store_email_credentials(email, password)
                 messagebox.showinfo("Saved", "Credentials have been saved.")
@@ -193,8 +207,6 @@ class LoginApp:
             run_event_app()
         else:
             messagebox.showerror("Error", "Please enter both email and password.")
-
-
 # Event App to display and add events to the calendar
 class EventApp:
     def __init__(self, root, events):
@@ -226,6 +238,7 @@ class EventApp:
         add_event_to_calendar(event_summary)
         messagebox.showinfo("Event Added", f"Event '{event_summary}' has been added to your calendar!")
         self.root.quit()
+
 
 # Function to run the Event Manager after login
 def run_event_app():
