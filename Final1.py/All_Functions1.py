@@ -17,6 +17,7 @@ from imap_tools import MailBox
 palm.configure(api_key="AIzaSyDnAEmnXo1nfb4dQY-IQZg6L8kpfEUiDDg")
 model=palm.GenerativeModel('gemini-1.5-flash-latest')
 
+SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 
 def retrieve_email_credentials(user_file):
@@ -46,16 +47,19 @@ def retrieve_email_credentials(user_file):
     return email, password ,path
 
 
-def read_emails():
+def read_emails(User_Creds):
     
   
     events = []
     time_responses = []
     discriptions = []
-
+    disc_dict = {}
+    start_time_dict = {}
+    end_time_dict = {}
+    canCalendar = {}
 
     # Access Gmail messages via POP3
-    with MailBox("pop.gmail.com").login('krishnanshu.agrawal2024@vitstudent.ac.in','bxrc jznb brfg laxo', "Inbox") as mb:
+    with MailBox("pop.gmail.com").login(User_Creds[0],User_Creds[1], "Inbox") as mb:
         for message in mb.fetch(limit=3, reverse=True, mark_seen=False):
             # Extract the unique message ID (assuming Gmail messages sync via POP3)
             message_id = message.uid  # For POP3, this is typically a unique message identifier
@@ -65,56 +69,95 @@ def read_emails():
 
             # Summarize the event details from the snippet
             small_response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following in 3 to 5 words :{snippet}")
-            discription_response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following in 200 words :{snippet}")
-            time_response = message.date
+            discription_response = model.generate_content(f"You are an assistant that summarizes event details from emails. Summarise the following in 200 words and write all the links in the text at the bottom with labels and also write event start and end time{snippet}")
+            time_response_start_res = model.generate_content(f'Find the start date and time of this event and give it back to me in YYYY-MM-DDTHH:MM:SS format dont put any text in it and respond with only the dates and time, in case that there is no start date or time respond with the word empty: {snippet} ')
+            time_response_end_res = model.generate_content(f'Find the end date and time of this event and give it back to me in YYYY-MM-DDTHH:MM:SS format dont put any text in it and respond with only the dates and time, in case that there is no end date or time respond with the word empty: {snippet} ')
+            timeResST = time_response_start_res.text
+            timeResEN = time_response_end_res.text
+            time_response_start = (timeResST).replace(' \n','')
+            time_response_end = (timeResEN).replace(' \n','')
+            index_ = small_response.text
+    
+
+
+
+            if time_response_end == time_response_start:
+                time_response_end = 'empty'
+
+            if time_response_end != 'empty' and time_response_start != 'empty':
+                canCalendar[index_] = True
+
+            elif time_response_start == 'empty' and time_response_end == 'empty':
+                canCalendar[index_] = False
+
+            elif time_response_end == 'empty' and time_response_start != 'empty':
+                tempVar = datetime.fromisoformat(time_response_end)
+                tempVar2 = tempVar + timedelta(days=1)
+                time_response_end = tempVar2.isoformat
+                canCalendar[index_] = True
+            else:
+                canCalendar = False
+            
+            time_response1 = message.date
             # Get the received date of the email
             internal_date = message.date
 
+            print(f'start :{time_response_start} and end :{time_response_end}')
+
             if internal_date:
                 # Convert to timestamp in milliseconds
-                events.append((small_response.text))
+                oneLineResponse = small_response.text
+                print(oneLineResponse)
+                events.append((oneLineResponse))
 
                 # Example datetime object with timezone info
-                dt = (time_response)
+                dt = (time_response1)
 
                 # Convert to the desired format: YYYY-MM-DD HH:MM:SS.ffffff
                 formatted_dt = dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+                print(formatted_dt)
 
                 time_responses.append(formatted_dt)
 
-                # discriptions.append(discription_response.text)
+                start_time_dict[oneLineResponse] = time_response_start
+                end_time_dict[oneLineResponse] = time_response_end
+                disc_dict[oneLineResponse] = discription_response.text
             else:
                 # Log if no date is found for debugging purposes
                 print(f"No date found for message ID {message_id}")
 
+        
         # Sort the events by internalDate in descending order (most recent first)
         events.sort(key=lambda event: event[1], reverse=True)
-
         print(events)
         print(time_responses)
 
     # Initialize empty dictionary
-    events_dict = {}
-
     # Loop through both lists together
-
-
     events_dict = {}
+
+    
+        
+
+
+
     for (event, timestamp) in (zip(events, time_responses)):
         date = datetime.fromisoformat(timestamp).date()
         date_tuple = (date.year, date.month, date.day)
         if date_tuple not in events_dict:
             events_dict[date_tuple] = [event]
-            print(events_dict)
         elif date_tuple in events_dict:
             events_dict[date_tuple] = ((events_dict[date_tuple]) + [event])
-            print(events_dict)
 
     print(events_dict)
-    return events_dict
+    print(disc_dict)
+    print(start_time_dict)
+    print(end_time_dict)
+    print(canCalendar)
+    return events_dict , disc_dict  ,start_time_dict ,end_time_dict , canCalendar
 
 
-def mainFn(events_dict):
+def mainFn(events_dict,disc_dict,timeDict_start,timeDict_end,canCalendar):
     root = tk.Tk()
     root.title("Event Calendar")
     root.state('zoomed')  # Set window to maximized (instead of fullscreen)
@@ -141,8 +184,37 @@ def mainFn(events_dict):
         selected_day = day  # Keep track of the selected day
         date_key = (current_year, current_month, day)
         events = events_dict.get(date_key, [])
-        event_str = "\n".join(events) if events else "No events"
-        preview_var.set(f"Selected Date: {day} {calendar.month_name[current_month]}, {current_year}\nEvents: {event_str}")
+
+        # Clear the existing preview frame
+        for widget in preview_frame.winfo_children():
+            widget.destroy()
+
+        # Display the selected date
+        tk.Label(preview_frame, text=f"Selected Date: {day} {calendar.month_name[current_month]}, {current_year}",
+                 bg=bg_color, fg=fg_color, font=("Arial", 14)).grid(row=0, column=0, columnspan=3, pady=10)
+
+        if events:
+            for idx, event in enumerate(events):
+                event_frame = tk.Frame(preview_frame, bg=bg_color)
+                event_frame.grid(row=idx+1, column=0, sticky="w", padx=5, pady=5)
+
+                # Display the event as a label
+                event_label = tk.Label(event_frame, text=event, bg=bg_color, fg=fg_color, font=("Arial", 12))
+                event_label.grid(row=idx, column=5, sticky="w", padx=10)
+
+                # Create a tick button for confirming the event
+                tick_button = tk.Button(event_frame, text="✔", width=2, bg="green", fg=fg_color,
+                                        command=lambda ev=event: confirm_event(date_key, ev))
+                tick_button.grid(row=idx, column=1, sticky="w", padx=5)
+
+                # Create a cross button for deleting the event
+                cross_button = tk.Button(event_frame, text="✘", width=2, bg="red", fg=fg_color,
+                                         command=lambda ev=event: cancel_event(date_key, ev))
+                cross_button.grid(row=idx, column=4, sticky="w", padx=5)
+
+        else:
+            # Display "No events" if no events are present for the selected day
+            tk.Label(preview_frame, text="No events", bg=bg_color, fg=fg_color, font=("Arial", 12)).grid(row=1, column=4)
 
     # Function to confirm event selection
     def confirm_selection(day_btn, day):
@@ -157,13 +229,27 @@ def mainFn(events_dict):
 
         update_preview(day)
 
-    # Function to cancel event selection
-    def cancel_selection(day_btn, day):
-        global current_month, current_year
-        day_btn.config(bg="red")  # Change button color to red
-        date_key = (current_year, current_month, day)
-        events_dict[date_key] = ["No event"]  # Overwrite with "No event"
-        update_preview(day)
+###################################################################################################################
+
+    def confirm_event(date_key, event):
+        print(f"Confirmed: {event} on {date_key}")
+        index = event
+        if canCalendar[index] == True:
+            add_event_to_calendar(disc_dict[index],timeDict_start[index],timeDict_end[index])
+        else:
+            print('Cannot add event with no set duration')
+
+###################################################################################################################
+
+
+    # Function to cancel an individual event
+    def cancel_event(date_key, event):
+        if date_key in events_dict and event in events_dict[date_key]:
+            events_dict[date_key].remove(event)
+            print(f"Cancelled: {event} on {date_key}")
+            if not events_dict[date_key]:  # If no more events, remove the key from the dict
+                del events_dict[date_key]
+            update_preview(selected_day)
 
     # Create a frame for the calendar grid
     grid_frame = tk.Frame(root, bg=bg_color)
@@ -212,7 +298,7 @@ def mainFn(events_dict):
     filter_label.pack(side=tk.LEFT, padx=20)
 
     filter_var = tk.StringVar()
-    filter_options = ["All Events", "Internships", "Competitions", "Study", "Travel", "Shopping", "Health", "Other"]
+    filter_options = ["Events", "Sports", "Internship Opportunity", "Competitions", "Gravitas", "Rivera", "CAT", "Other"]
     filter_dropdown = ttk.Combobox(root, textvariable=filter_var, values=filter_options)
     filter_dropdown.pack(side=tk.LEFT, padx=10)
     filter_dropdown.configure(background="#333333", foreground="white", state='readonly')
@@ -238,31 +324,8 @@ def mainFn(events_dict):
     year_dropdown.configure(background="#333333", foreground="white", state='readonly')
 
     # Create a preview section
-    preview_var = tk.StringVar(value=f"Selected Date: {current_day} {calendar.month_name[current_month]}, {current_year}")
-    preview_label = tk.Label(root, textvariable=preview_var, font=("Arial", 14), bg=bg_color, fg=fg_color)
-    preview_label.pack(pady=20)
-
-    # Create Tick and Cross buttons
-    def confirm_action():
-        print(f"Confirmed: {preview_var.get()}")
-
-    def cancel_action():
-        global selected_day, current_month, current_year
-        if selected_day is not None:
-            # Remove the selected day's event from the dictionary
-            date_key = (current_year, current_month, selected_day)
-            if date_key in events_dict:
-                del events_dict[date_key]
-            preview_var.set(f"Removed events for {selected_day} {calendar.month_name[current_month]}, {current_year}")
-            selected_day = None  # Reset the selected day
-
-    tick_button = tk.Button(root, text="✔", command=confirm_action, width=8, bg="green", fg=fg_color,
-                            highlightbackground="white", bd=1, relief="solid")
-    tick_button.pack(side=tk.LEFT, padx=20)
-
-    cross_button = tk.Button(root, text="✘", command=cancel_action, width=8, bg="red", fg=fg_color,
-                            highlightbackground="white", bd=1, relief="solid")
-    cross_button.pack(side=tk.LEFT, padx=20)
+    preview_frame = tk.Frame(root, bg=bg_color)
+    preview_frame.pack(pady=20, fill=tk.X)
 
     # Configure grid frame to expand
     grid_frame.columnconfigure(tuple(range(7)), weight=1)  # Make columns stretchable
@@ -272,5 +335,49 @@ def mainFn(events_dict):
     root.mainloop()
 
 
+def authenticate_google(path):
+    creds = None
+    # Check if token.json exists (used to store credentials between sessions)
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
 
-mainFn(read_emails())
+    # If there are no (valid) credentials available, let the user log in
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            # Run OAuth2 flow for first-time authentication
+            flow = InstalledAppFlow.from_client_secrets_file(
+                path, SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+
+    return creds
+
+
+def add_event_to_calendar(event_summary,start_time,end_time):
+    creds = authenticate_google(r'C:\Users\krish\Desktop\hack\emailreader\working\credentials.json')
+    service = build('calendar', 'v3', credentials=creds)
+    
+    event = {
+        'summary': event_summary,
+        'start': {
+            'dateTime': start_time,
+            'timeZone': 'UTC',
+        },
+        'end': {
+            'dateTime': end_time,
+            'timeZone': 'UTC',
+        },
+    }
+
+    event = service.events().insert(calendarId='primary', body=event).execute()
+    print(f"Event created: {event.get('htmlLink')}")
+# Call the function to run the calendar application
+
+
+
+# print(authenticate_google(r'C:\Users\krish\Desktop\hack\emailreader\working\credentials.json'))
+# add_event_to_calendar('event try')

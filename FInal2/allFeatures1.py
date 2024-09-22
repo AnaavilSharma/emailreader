@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import os
-from All_Functions import *
+from mainfn import *
 
 
 
@@ -76,10 +76,16 @@ class LoginApp:
         self.additional_text.pack(pady=10)
 
         self.load_user()  # Load a single user
-        
+
+#####################################################################################################################
+
     def open_calendar_app(self):
         ReturnVal = read_emails(retrieve_email_credentials(USER_FILE))
-        mainFn(ReturnVal)
+
+        mainFn(ReturnVal[0],ReturnVal[1],ReturnVal[2],ReturnVal[3],ReturnVal[4])
+
+######################################################################################################################
+
 
     def create_title_bar(self):
         title_bar = tk.Frame(self.root, bg="#5A4B8A", relief='raised', bd=0)
